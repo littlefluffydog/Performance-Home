@@ -38,8 +38,8 @@ const ResultCard: React.FC<{ entry: HistoryEntry }> = ({ entry }) => {
     EXTREME: 'bg-purple-500/20 text-purple-300',
   }
 
-  const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY; 
-  const mapUrl = location && GOOGLE_MAPS_API_KEY ? `https://maps.googleapis.com/maps/api/staticmap?center=${location.lat},${location.lng}&zoom=14&size=600x400&maptype=satellite&markers=color:red%7C${location.lat},${location.lng}&key=${GOOGLE_MAPS_API_KEY}` : null;
+  // Switched to OpenStreetMap to remove dependency on API keys.
+  const mapUrl = location ? `https://staticmap.openstreetmap.de/staticmap.php?center=${location.lat},${location.lng}&zoom=14&size=600x400&maptype=mapnik&markers=${location.lat},${location.lng},red-pushpin` : null;
 
   const Icon = classification === 'HOSTILE' ? ShieldExclamationIcon : classification === 'FRIENDLY' ? ShieldCheckIcon : WarningIcon;
 
@@ -75,9 +75,9 @@ const ResultCard: React.FC<{ entry: HistoryEntry }> = ({ entry }) => {
                       </p>
                   </div>
                </div>
-               {mapUrl && (
+               {mapUrl && location && (
                   <div className="rounded-md overflow-hidden border-2 border-gray-700">
-                      <a href={`https://www.google.com/maps?q=${location.lat},${location.lng}`} target="_blank" rel="noopener noreferrer" aria-label="View on Google Maps">
+                      <a href={`https://www.openstreetmap.org/#map=16/${location.lat}/${location.lng}`} target="_blank" rel="noopener noreferrer" aria-label="View on OpenStreetMap">
                           <img src={mapUrl} alt="Asset Location Map" className="w-full h-auto object-cover"/>
                       </a>
                   </div>
@@ -134,6 +134,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ historyEntry, isLoadi
         const canvas = await html2canvas(reportRef.current, {
             backgroundColor: '#1f2937',
             scale: 2,
+            useCORS: true, // Important for external images like maps
         });
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
