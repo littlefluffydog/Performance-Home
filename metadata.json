@@ -3,6 +3,7 @@
   "description": "Identify military vehicles and aircraft from images or live video using AI. Classify assets as friendly or hostile for strategic awareness.",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }

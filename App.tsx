@@ -3,60 +3,121 @@ import Header from './components/Header';
 import InputPanel from './components/ImageUploader';
 import AnalysisDisplay from './components/ImageDisplay';
 import { identifyAsset } from './services/geminiService';
-import { AnalysisResult } from './types';
+import { HistoryEntry, Location } from './types';
+import HistoryControls from './components/HistoryControls';
+
+// Helper function to get the user's current location, wrapped in a Promise.
+const getCurrentLocation = (): Promise<Location | undefined> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser.");
+      resolve(undefined);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.warn(`Geolocation error: ${error.message}`);
+        resolve(undefined); // Resolve with undefined on error (e.g., permission denied)
+      },
+      { timeout: 10000 }
+    );
+  });
+};
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
+  const [analyzingImageUrl, setAnalyzingImageUrl] = useState<string | null>(null);
 
   const handleFileCapture = useCallback(async (file: File) => {
     setIsLoading(true);
     setError(null);
-    setAnalysisResult(null);
     
     const imageUrl = URL.createObjectURL(file);
-    setSourceImageUrl(imageUrl);
+    setAnalyzingImageUrl(imageUrl);
 
-    try {
-      const result = await identifyAsset(file);
-      setAnalysisResult(result);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unknown error occurred.");
-      }
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+    // Get location and identify asset concurrently for efficiency.
+    const [location, result] = await Promise.all([
+        getCurrentLocation(),
+        identifyAsset(file).catch(err => {
+            console.error(err);
+            return err as Error;
+        })
+    ]);
+
+    setIsLoading(false);
+    setAnalyzingImageUrl(null);
+
+    if (result instanceof Error) {
+        setError(result.message || "An unknown error occurred during analysis.");
+        URL.revokeObjectURL(imageUrl);
+        return;
     }
-  }, []);
+
+    const newEntry: HistoryEntry = {
+      result,
+      imageUrl,
+      timestamp: new Date().toISOString(),
+      location,
+    };
+    
+    setHistory(prev => {
+      const newHistory = prev.slice(0, currentHistoryIndex + 1);
+      return [...newHistory, newEntry];
+    });
+    // Set the current index to the newly added item.
+    setCurrentHistoryIndex(prev => prev >= 0 ? prev + 1 : 0);
+
+  }, [currentHistoryIndex]);
 
   const handleReset = useCallback(() => {
-    setIsLoading(false);
+    setCurrentHistoryIndex(-1); 
     setError(null);
-    setAnalysisResult(null);
-    if (sourceImageUrl) {
-      URL.revokeObjectURL(sourceImageUrl);
-    }
-    setSourceImageUrl(null);
-  }, [sourceImageUrl]);
+    setIsLoading(false);
+  }, []);
+
+  const handleHistoryNav = (direction: 'prev' | 'next') => {
+      if (direction === 'prev' && currentHistoryIndex > 0) {
+          setCurrentHistoryIndex(currentHistoryIndex - 1);
+      }
+      if (direction === 'next' && currentHistoryIndex < history.length - 1) {
+          setCurrentHistoryIndex(currentHistoryIndex + 1);
+      }
+  };
+
+  const currentEntry = history[currentHistoryIndex];
 
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
       <Header />
       <main className="container mx-auto px-4 py-8 flex flex-col items-center">
-        {!analysisResult && !isLoading && !error ? (
+        {!currentEntry && !isLoading && !error ? (
           <InputPanel onFileCapture={handleFileCapture} disabled={isLoading} />
         ) : (
           <AnalysisDisplay 
             isLoading={isLoading}
             error={error}
-            analysisResult={analysisResult}
-            sourceImageUrl={sourceImageUrl}
+            historyEntry={currentEntry}
+            analyzingImageUrl={analyzingImageUrl}
             onReset={handleReset}
+            historyControls={
+                history.length > 1 && !isLoading && !error && (
+                    <HistoryControls
+                        currentIndex={currentHistoryIndex}
+                        total={history.length}
+                        onNavigate={handleHistoryNav}
+                    />
+                )
+            }
           />
         )}
       </main>
