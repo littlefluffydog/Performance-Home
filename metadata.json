@@ -1,5 +1,8 @@
 {
-  "name": "Visual Editor AI",
-  "description": "A powerful visual editor that allows you to modify images based on natural language commands, powered by the Gemini API.",
-  "requestFramePermissions": []
+  "name": "Tactical Asset ID",
+  "description": "Identify military vehicles and aircraft from images or live video using AI. Classify assets as friendly or hostile for strategic awareness.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

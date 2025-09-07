@@ -1,127 +1,104 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { editImageWithGemini } from './services/geminiService';
-import { EditedImageResult } from './types';
+import React, { useState } from 'react';
 import Header from './components/Header';
-import ImageUploader from './components/ImageUploader';
-import PromptControls from './components/PromptControls';
-import ImageDisplay from './components/ImageDisplay';
-import HistoryControls from './components/HistoryControls';
+import InputPanel from './components/ImageUploader';
+import AnalysisDisplay from './components/ImageDisplay';
+import { AnalysisResult } from './types';
+import { identifyAsset } from './services/geminiService';
+import { SparklesIcon } from './components/Icons';
+import Spinner from './components/Spinner';
 
 const App: React.FC = () => {
-  const [originalImage, setOriginalImage] = useState<File | null>(null);
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
-  const [history, setHistory] = useState<EditedImageResult[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [prompt, setPrompt] = useState<string>('');
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [sourceFileUrl, setSourceFileUrl] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentEditedImage = history[historyIndex] ?? null;
-  const canUndo = historyIndex > -1;
-  const canRedo = historyIndex < history.length - 1;
-
-  const handleImageUpload = useCallback((file: File) => {
-    setOriginalImage(file);
-    setOriginalImageUrl(URL.createObjectURL(file));
-    setHistory([]);
-    setHistoryIndex(-1);
+  const handleFileCapture = (file: File) => {
+    setSourceFile(file);
+    setSourceFileUrl(URL.createObjectURL(file));
+    setAnalysisResult(null); 
     setError(null);
-  }, []);
+  };
 
-  const handleSubmit = async () => {
-    if (!originalImage || !prompt.trim()) {
-      setError('Please upload an image and enter an editing command.');
+  const handleAnalyze = async () => {
+    if (!sourceFile) {
+      setError('Please upload or capture an image to analyze.');
       return;
     }
-
     setIsLoading(true);
     setError(null);
+    setAnalysisResult(null);
 
     try {
-      const result = await editImageWithGemini(originalImage, prompt);
-      const newHistory = history.slice(0, historyIndex + 1);
-      const updatedHistory = [...newHistory, result];
-      setHistory(updatedHistory);
-      setHistoryIndex(updatedHistory.length - 1);
+      const result = await identifyAsset(sourceFile);
+      setAnalysisResult(result);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(`Analysis failed. ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleUndo = useCallback(() => {
-    if (canUndo) {
-      setHistoryIndex(prevIndex => prevIndex - 1);
+  
+  const handleReset = () => {
+    setSourceFile(null);
+    if(sourceFileUrl) {
+      URL.revokeObjectURL(sourceFileUrl);
     }
-  }, [canUndo]);
+    setSourceFileUrl(null);
+    setAnalysisResult(null);
+    setError(null);
+    setIsLoading(false);
+  }
 
-  const handleRedo = useCallback(() => {
-    if (canRedo) {
-      setHistoryIndex(prevIndex => prevIndex + 1);
+  const renderContent = () => {
+    if (isLoading) {
+      return <AnalysisDisplay isLoading={true} sourceImageUrl={sourceFileUrl} />;
     }
-  }, [canRedo]);
-
-  // Add keyboard shortcuts for undo/redo
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't interfere with text input undo/redo
-      const activeElement = document.activeElement;
-      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-        return;
-      }
-
-      const isModKey = event.metaKey || event.ctrlKey;
-
-      if (isModKey && event.key === 'z') {
-        event.preventDefault();
-        handleUndo();
-      } else if (isModKey && event.key === 'y') {
-        event.preventDefault();
-        handleRedo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleUndo, handleRedo]);
-
+    if (error) {
+      return <AnalysisDisplay error={error} onReset={handleReset} />;
+    }
+    if (analysisResult) {
+      return <AnalysisDisplay analysisResult={analysisResult} sourceImageUrl={sourceFileUrl} onReset={handleReset} />;
+    }
+    if (sourceFileUrl) {
+      return (
+         <div className="w-full text-center p-8">
+            <h2 className="text-lg font-semibold text-gray-300 mb-4">Asset Preview</h2>
+            <div className="max-w-md mx-auto aspect-square mb-6 rounded-lg overflow-hidden border-2 border-gray-600">
+                 <img src={sourceFileUrl} alt="Asset for analysis" className="w-full h-full object-contain" />
+            </div>
+            <div className="flex justify-center gap-4">
+                <button
+                    onClick={handleReset}
+                    className="px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+                >
+                    Change Image
+                </button>
+                <button
+                    onClick={handleAnalyze}
+                    className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-500/50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <SparklesIcon className="w-5 h-5 mr-2" />
+                    Analyze Asset
+                </button>
+            </div>
+         </div>
+      );
+    }
+    return <InputPanel onFileCapture={handleFileCapture} disabled={isLoading} />;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-900 font-sans text-gray-200 flex flex-col">
+    <div className="bg-gray-900 min-h-screen text-white font-sans flex flex-col">
       <Header />
-      <main className="flex-grow container mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8">
-        <div className="lg:w-1/3 w-full flex flex-col gap-6 bg-gray-800/50 p-6 rounded-2xl border border-gray-700 shadow-2xl">
-          <ImageUploader onImageUpload={handleImageUpload} imageUrl={originalImageUrl} />
-          <HistoryControls
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-          />
-          <PromptControls
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            disabled={!originalImage}
-          />
-        </div>
-        <div className="lg:w-2/3 w-full flex flex-col">
-          <ImageDisplay
-            originalImageUrl={originalImageUrl}
-            editedImageResult={currentEditedImage}
-            isLoading={isLoading}
-            error={error}
-          />
+      <main className="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
+        <div className="w-full max-w-4xl bg-gray-800/50 rounded-xl shadow-2xl border border-gray-700/50">
+            {renderContent()}
         </div>
       </main>
-      <footer className="text-center p-4 text-gray-500 text-sm">
-        <p>Powered by Gemini. Built for visual creativity.</p>
-      </footer>
     </div>
   );
 };
