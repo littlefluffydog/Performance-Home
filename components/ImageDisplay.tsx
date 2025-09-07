@@ -1,5 +1,7 @@
-import React from 'react';
-import { WarningIcon, ShieldCheckIcon, ShieldExclamationIcon, RefreshIcon } from './Icons';
+import React, { useRef, useState } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { WarningIcon, ShieldCheckIcon, ShieldExclamationIcon, RefreshIcon, FileTextIcon } from './Icons';
 import Spinner from './Spinner';
 import { AnalysisResult } from '../types';
 
@@ -12,7 +14,7 @@ interface AnalysisDisplayProps {
 }
 
 const ResultCard: React.FC<{ result: AnalysisResult }> = ({ result }) => {
-  const { classification, model, origin, confidence, details, assetType } = result;
+  const { classification, model, origin, confidence, details, assetType, similarAssets, threatLevel, capabilities } = result;
 
   const classificationStyles = {
     HOSTILE: 'bg-red-500/10 text-red-400 border-red-500/30',
@@ -26,16 +28,31 @@ const ResultCard: React.FC<{ result: AnalysisResult }> = ({ result }) => {
     UNKNOWN: 'border-gray-500/50',
   };
 
+  const threatStyles = {
+    NONE: 'bg-gray-500/20 text-gray-300',
+    LOW: 'bg-yellow-500/20 text-yellow-300',
+    MEDIUM: 'bg-orange-500/20 text-orange-300',
+    HIGH: 'bg-red-500/20 text-red-300',
+    EXTREME: 'bg-purple-500/20 text-purple-300',
+  }
+
   const Icon = classification === 'HOSTILE' ? ShieldExclamationIcon : classification === 'FRIENDLY' ? ShieldCheckIcon : WarningIcon;
 
   return (
     <div className={`bg-gray-900/50 rounded-lg p-4 md:p-6 space-y-4 border ${classificationBorder[classification]}`}>
-      <div className={`flex items-center gap-3 p-3 rounded-md ${classificationStyles[classification]}`}>
-        <Icon className="w-8 h-8 flex-shrink-0" />
-        <div>
-          <h3 className="font-bold text-lg leading-tight">{classification}</h3>
-          <p className="text-sm opacity-80">Confidence: {(confidence * 100).toFixed(0)}%</p>
+      <div className={`flex items-start justify-between gap-3 p-3 rounded-md ${classificationStyles[classification]}`}>
+        <div className="flex items-center gap-3">
+            <Icon className="w-8 h-8 flex-shrink-0" />
+            <div>
+              <h3 className="font-bold text-lg leading-tight">{classification}</h3>
+              <p className="text-sm opacity-80">Confidence: {(confidence * 100).toFixed(0)}%</p>
+            </div>
         </div>
+        {threatLevel && (
+             <span className={`text-xs font-bold px-2 py-1 rounded-full ${threatStyles[threatLevel]}`}>
+                THREAT: {threatLevel}
+            </span>
+        )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
@@ -55,12 +72,72 @@ const ResultCard: React.FC<{ result: AnalysisResult }> = ({ result }) => {
         <p className="font-semibold text-gray-400 text-sm">Details</p>
         <p className="text-white/80 text-sm leading-relaxed">{details}</p>
       </div>
+      <div>
+        <p className="font-semibold text-gray-400 text-sm">Capabilities</p>
+        <p className="text-white/80 text-sm leading-relaxed">{capabilities}</p>
+      </div>
+       {similarAssets && similarAssets.length > 0 && (
+        <div>
+          <p className="font-semibold text-gray-400 text-sm">Visually Similar Assets</p>
+           <ul className="mt-1 space-y-1">
+            {similarAssets.map((asset, index) => (
+              <li key={index} className="text-white/80 text-sm bg-gray-800/50 px-2 py-1 rounded-md">{asset}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };
 
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysisResult, isLoading, error, sourceImageUrl, onReset }) => {
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current) return;
+    setIsGeneratingPdf(true);
+
+    try {
+        const canvas = await html2canvas(reportRef.current, {
+            backgroundColor: '#1f2937', // Tailwind gray-800
+            scale: 2,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Use A4 paper size and scale the image to fit
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const canvasAspectRatio = canvasWidth / canvasHeight;
+
+        let imgWidth = pdfWidth - 20; // with margin
+        let imgHeight = imgWidth / canvasAspectRatio;
+
+        if (imgHeight > pdfHeight - 20) {
+            imgHeight = pdfHeight - 20;
+            imgWidth = imgHeight * canvasAspectRatio;
+        }
+
+        const xOffset = (pdfWidth - imgWidth) / 2;
+        const yOffset = (pdfHeight - imgHeight) / 2;
+        
+        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
+        pdf.save(`tactical-asset-report-${Date.now()}.pdf`);
+
+    } catch (err) {
+        console.error("Failed to generate PDF:", err);
+        alert("Sorry, there was an error creating the PDF report.");
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -94,19 +171,31 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysisResult, isLoa
   if (analysisResult && sourceImageUrl) {
       return (
           <div className="w-full p-4 sm:p-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  <div className="w-full aspect-square relative flex items-center justify-center rounded-lg overflow-hidden border-2 border-gray-700">
-                      <img src={sourceImageUrl} alt="Asset for analysis" className="w-full h-full object-contain" />
-                  </div>
-                  <div className="w-full">
-                    <h2 className="text-lg font-semibold text-gray-300 mb-3">Analysis Report</h2>
-                    <ResultCard result={analysisResult} />
-                  </div>
+              <div ref={reportRef} className="bg-gray-800 p-6 rounded-lg">
+                <h2 className="text-2xl font-bold text-white mb-6 text-center">Tactical Asset ID Report</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    <div className="w-full aspect-square relative flex items-center justify-center rounded-lg overflow-hidden border-2 border-gray-700 bg-gray-900">
+                        <img src={sourceImageUrl} alt="Asset for analysis" className="w-full h-full object-contain" />
+                    </div>
+                    <div className="w-full">
+                      <h3 className="text-lg font-semibold text-gray-300 mb-3">Analysis Details</h3>
+                      <ResultCard result={analysisResult} />
+                    </div>
+                </div>
               </div>
-              <div className="text-center mt-8">
-                <button onClick={onReset} className="flex items-center gap-2 px-6 py-3 mx-auto bg-gray-700 hover:bg-gray-600 rounded-md font-semibold text-white transition-colors">
+
+              <div className="text-center mt-8 flex flex-wrap justify-center gap-4">
+                <button onClick={onReset} className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-md font-semibold text-white transition-colors">
                     <RefreshIcon className="w-5 h-5" />
-                    Analyze Another Asset
+                    Analyze Another
+                </button>
+                <button 
+                  onClick={handleDownloadPdf} 
+                  disabled={isGeneratingPdf}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold text-white transition-colors disabled:bg-indigo-500/50 disabled:cursor-wait"
+                >
+                    {isGeneratingPdf ? <Spinner size="sm" /> : <FileTextIcon className="w-5 h-5" />}
+                    {isGeneratingPdf ? 'Generating PDF...' : 'Download Report'}
                 </button>
               </div>
           </div>

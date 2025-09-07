@@ -96,7 +96,7 @@ const InputPanel: React.FC<InputPanelProps> = ({ onFileCapture, disabled }) => {
             <div className="relative max-w-md mx-auto aspect-square mb-6 rounded-lg overflow-hidden border-2 border-gray-600 bg-gray-900 flex items-center justify-center">
                 <video ref={videoRef} playsInline className="w-full h-full object-cover" />
                 {isCameraStarting && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 backdrop-blur-sm">
                         <Spinner />
                         <p className="mt-2 text-sm text-gray-400">Starting camera...</p>
                     </div>
@@ -112,7 +112,7 @@ const InputPanel: React.FC<InputPanelProps> = ({ onFileCapture, disabled }) => {
                 <button 
                     onClick={handleCapture} 
                     disabled={disabled || isCameraStarting}
-                    className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                    className={`inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-opacity ${!isCameraStarting ? 'animate-pulse' : ''}`}
                 >
                     <CameraIcon className="w-5 h-5 mr-2" />
                     Capture Frame

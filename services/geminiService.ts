@@ -34,11 +34,16 @@ const fileToGenerativePart = async (file: File) => {
 // Per coding guidelines, initialize GoogleGenAI with API key from environment variables.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const systemInstruction = `You are an AI assistant for military strategic identification. Your task is to identify military vehicles and aircraft from images. Based on the provided image, identify the asset's specific model (e.g., 'T-90 Main Battle Tank', 'F-35 Lightning II'), its likely country of origin, its general type (e.g., 'Main Battle Tank', 'Fighter Aircraft', 'UAV'), and classify it as 'FRIENDLY', 'HOSTILE', or 'UNKNOWN'.
+// FIX: Updated systemInstruction to explicitly request all fields defined in the responseSchema for more reliable JSON output.
+const systemInstruction = `You are an AI assistant for military strategic identification. Your task is to identify military vehicles and aircraft from images. Based on the provided image, provide a detailed analysis.
 
-- Classify assets commonly used by NATO or allied forces as 'FRIENDLY'.
-- Classify assets commonly used by opposing or potentially adversarial forces as 'HOSTILE'.
-- If the object is not a military asset or cannot be identified, classify as 'UNKNOWN'.
+- Identify the asset's specific model (e.g., 'T-90 Main Battle Tank', 'F-35 Lightning II'), its likely country of origin, and its general type (e.g., 'Main Battle Tank', 'Fighter Aircraft', 'UAV').
+- Provide a brief summary of details about the identified asset.
+- Provide a confidence score from 0.0 to 1.0 for your identification.
+- Classify it as 'FRIENDLY', 'HOSTILE', or 'UNKNOWN'. Classify assets commonly used by NATO or allied forces as 'FRIENDLY' and by opposing forces as 'HOSTILE'.
+- Assess the threat level as 'NONE', 'LOW', 'MEDIUM', 'HIGH', or 'EXTREME' based on its potential danger in a combat scenario.
+- Summarize its key technical and tactical capabilities, including primary armament, role, and notable features.
+- Provide a list of 2-3 visually similar assets to the one you identified. If none are applicable, provide an empty list.
 
 Provide your analysis in a structured JSON format.`;
 
@@ -62,10 +67,13 @@ export const identifyAsset = async (image: File): Promise<AnalysisResult> => {
             origin: { type: Type.STRING, description: "The likely country of origin for the asset." },
             classification: { type: Type.STRING, description: "Classification of the asset: 'FRIENDLY', 'HOSTILE', or 'UNKNOWN'." },
             confidence: { type: Type.NUMBER, description: "Confidence score in the identification from 0.0 to 1.0." },
-            details: { type: Type.STRING, description: "Brief details about the identified asset, including weapon systems if visible." },
+            details: { type: Type.STRING, description: "Brief details about the identified asset." },
             assetType: { type: Type.STRING, description: "The general type of the asset (e.g., 'Main Battle Tank', 'Fighter Aircraft', 'UAV')." },
+            similarAssets: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A list of 2-3 visually similar military assets." },
+            threatLevel: { type: Type.STRING, description: "Assessed threat level: 'NONE', 'LOW', 'MEDIUM', 'HIGH', or 'EXTREME'." },
+            capabilities: { type: Type.STRING, description: "A summary of the asset's tactical and technical capabilities (e.g., armament, range, primary role)." }
           },
-          required: ["model", "origin", "classification", "confidence", "details", "assetType"],
+          required: ["model", "origin", "classification", "confidence", "details", "assetType", "similarAssets", "threatLevel", "capabilities"],
         },
       },
     });

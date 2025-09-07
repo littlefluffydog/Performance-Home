@@ -5,4 +5,7 @@ export interface AnalysisResult {
   confidence: number;
   details: string;
   assetType: string;
+  similarAssets: string[];
+  threatLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
+  capabilities: string;
 }
