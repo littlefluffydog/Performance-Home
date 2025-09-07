@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface IconProps {
@@ -61,4 +60,28 @@ export const SparklesIcon: React.FC<IconProps> = ({ className }) => (
         d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.293 2.293a1 1 0 010 1.414L10 12l-2 2 2.828 2.828a1 1 0 010 1.414L10 21m5-16l2.293 2.293a1 1 0 010 1.414L15 12l-2 2 2.828 2.828a1 1 0 010 1.414L15 21"
       />
     </svg>
+);
+
+export const DownloadIcon: React.FC<IconProps> = ({ className }) => (
+  <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      className={className} 
+      fill="none" 
+      viewBox="0 0 24 24" 
+      stroke="currentColor" 
+      strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+);
+
+export const UndoIcon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+  </svg>
+);
+
+export const RedoIcon: React.FC<IconProps> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H3a6 6 0 000 12h3" />
+  </svg>
 );

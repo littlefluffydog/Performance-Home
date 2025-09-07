@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { EditedImageResult } from '../types';
 import Spinner from './Spinner';
-import { ImageIcon, WarningIcon } from './Icons';
+import { ImageIcon, WarningIcon, DownloadIcon } from './Icons';
 
 interface ImageDisplayProps {
   originalImageUrl: string | null;
@@ -31,6 +30,25 @@ const ImageCard: React.FC<{ imageUrl: string; title: string }> = ({ imageUrl, ti
 
 
 const ImageDisplay: React.FC<ImageDisplayProps> = ({ originalImageUrl, editedImageResult, isLoading, error }) => {
+
+  const handleDownload = () => {
+    if (!editedImageResult?.imageUrl) return;
+
+    const link = document.createElement('a');
+    link.href = editedImageResult.imageUrl;
+    
+    try {
+        const mimeType = editedImageResult.imageUrl.split(';')[0].split(':')[1];
+        const extension = mimeType.split('/')[1] || 'png';
+        link.download = `edited-image.${extension}`;
+    } catch(e) {
+        link.download = `edited-image.png`;
+    }
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
     
   const renderContent = () => {
     if (isLoading) {
@@ -69,8 +87,16 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ originalImageUrl, editedIma
         <>
             <ImageCard imageUrl={originalImageUrl} title="Original" />
             {editedImageResult?.imageUrl ? (
-                <div>
+                <div className="relative group">
                   <ImageCard imageUrl={editedImageResult.imageUrl} title="Edited" />
+                  <button
+                    onClick={handleDownload}
+                    className="absolute top-12 right-2 bg-gray-900/60 hover:bg-indigo-600 text-white p-2.5 rounded-full backdrop-blur-sm transition-all duration-300 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    aria-label="Download edited image"
+                    title="Download edited image"
+                  >
+                    <DownloadIcon className="w-5 h-5" />
+                  </button>
                   {editedImageResult.text && (
                       <p className="mt-4 text-sm text-center text-gray-400 p-3 bg-gray-800 rounded-md italic">
                           {`AI says: "${editedImageResult.text}"`}
