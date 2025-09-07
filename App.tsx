@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { editImageWithGemini } from './services/geminiService';
 import { EditedImageResult } from './types';
 import Header from './components/Header';
@@ -62,6 +62,32 @@ const App: React.FC = () => {
       setHistoryIndex(prevIndex => prevIndex + 1);
     }
   }, [canRedo]);
+
+  // Add keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't interfere with text input undo/redo
+      const activeElement = document.activeElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      const isModKey = event.metaKey || event.ctrlKey;
+
+      if (isModKey && event.key === 'z') {
+        event.preventDefault();
+        handleUndo();
+      } else if (isModKey && event.key === 'y') {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleUndo, handleRedo]);
 
 
   return (
