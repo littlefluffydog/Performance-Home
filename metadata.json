@@ -1,0 +1,5 @@
+{
+  "name": "Visual Editor AI",
+  "description": "A powerful visual editor that allows you to modify images based on natural language commands, powered by the Gemini API.",
+  "requestFramePermissions": []
+}
